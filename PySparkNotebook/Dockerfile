@@ -2,10 +2,8 @@ FROM debian:11-slim as base
 
 ARG shared_workspace=/opt/workspace
 RUN mkdir -p ${shared_workspace} && \
-    apt-get update -y && \
-    apt-get install -y python3 && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
     apt-get update && apt-get install -y openjdk-11-jre-headless procps tini curl python3 python3-pip && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
     rm -rf /var/lib/apt/lists/*
 
 ENV SHARED_WORKSPACE=${shared_workspace}
@@ -17,14 +15,18 @@ FROM base as spark
 
 ARG spark_version=3.0.0
 ARG hadoop_version=2.7
+ARG cloud_sdk=AWS
 
-RUN apt-get update -y && \
-    apt-get install -y curl && \
-    curl https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz && \
+RUN curl https://archive.apache.org/dist/spark/spark-${spark_version}/spark-${spark_version}-bin-hadoop${hadoop_version}.tgz -o spark.tgz && \
     tar -xf spark.tgz && \
     mv spark-${spark_version}-bin-hadoop${hadoop_version} /usr/bin/ && \
     mkdir /usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}/logs && \
     rm spark.tgz
+
+ENV CLOUD_SDK=${cloud_sdk}
+COPY ./install_sdk.sh .
+RUN chmod +x install_sdk.sh && \
+    ./install_sdk.sh
 
 # Set Spark environment variables
 ENV SPARK_HOME /usr/bin/spark-${spark_version}-bin-hadoop${hadoop_version}
@@ -45,7 +47,8 @@ RUN pip install -r requirements.txt && \
     pip install jupyterlab
 
 # Copy all files to the container
-COPY . .
+COPY ./data ./data
+COPY ./scripts ./scripts
 
 # Expose the default Jupyter Notebook port (8888)
 EXPOSE 8888
